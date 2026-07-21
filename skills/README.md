@@ -46,7 +46,13 @@ Run each against a staging GHL calendar once integrations are live.
 
 ---
 
-## Optional: PR workflow
-The original brief referenced `./scripts/pr-skill.sh` for promoting a skill to Automate305
-core. That script does not exist in this repo yet. If you want it, we can add a small script
-that opens a PR for a given skill file.
+## PR workflow
+Promote a skill to core with:
+
+```bash
+./scripts/pr-skill.sh skills/hvac-ai-receptionist.md
+./scripts/pr-skill.sh skills/hvac-ai-chatbot.md
+```
+
+The script branches off the default branch with just that skill (plus the knowledge base),
+pushes it, and opens a PR via the GitHub CLI (`gh`, must be authenticated).
