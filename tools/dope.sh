@@ -110,6 +110,27 @@ RED_COLOR='\033[0;31m'
 GREEN_COLOR='\033[0;32m'
 RESET_COLOR='\033[0m'
 
+# Removes now-empty directories in the derived dir, walking up from the given
+# dir (relative to DERIVED_DIR) towards DERIVED_DIR's root, stopping as soon as
+# a non-empty directory is encountered.
+remove_empty_parent_dirs() {
+  local rel_dir=$1
+
+  while [[ "${rel_dir}" != "." && "${rel_dir}" != "/" ]]; do
+    local abs_dir="${DERIVED_DIR}/${rel_dir}"
+
+    if [ ! -d "${abs_dir}" ] || [ -n "$(find "${abs_dir}" -mindepth 1 -maxdepth 1)" ]; then
+      break
+    fi
+
+    rmdir "${abs_dir}"
+    echo "Deleted empty directory ${abs_dir}"
+    echo -e "${GREEN_COLOR}[OK]${RESET_COLOR}"
+
+    rel_dir=$(dirname "${rel_dir}")
+  done
+}
+
 # Patches the diff dir onto the base dir to get the derived dir.
 recreate_derived_dir() {
   mkdir -p "${DERIVED_DIR}"
@@ -160,7 +181,7 @@ recreate_derived_dir() {
   done < <(find "${DIFF_DIR}" -name "*.copy")
 
   # Delete any files that exist in the base dir but shouldn't exist in the derived dir.
-  # TODO: also allow deletion of dirs.
+  # Afterwards, also remove any parent directories that are left empty as a result.
   if [ -f "${DIFF_DIR_DELETIONS}" ]; then
     while IFS= read -r filepath; do
       # Skip empty lines
@@ -180,6 +201,7 @@ recreate_derived_dir() {
       if [ ${rm_exit_code} -eq 0 ]; then
         echo "Deleted ${derived_dir_filepath}"
         echo -e "${GREEN_COLOR}[OK]${RESET_COLOR}"
+        remove_empty_parent_dirs "$(dirname "${filepath}")"
       else
         echo "Failed to delete ${derived_dir_filepath}"
         echo -e "${RED_COLOR}[Failed with exit code ${rm_exit_code}]${RESET_COLOR}"
