@@ -26,6 +26,8 @@ model User {
   contactFormMessages       ContactFormMessage[]
   tasks                     Task[]
   files                     File[]
+  technicians               Technician[]
+  jobs                      Job[]
 }
 
 model GptResponse {
@@ -108,4 +110,73 @@ model ContactFormMessage {
   content                   String
   isRead                    Boolean         @default(false)
   repliedAt                 DateTime?
+}
+
+// Job costing: lets an account owner track true per-job profitability
+// (revenue minus real labor and materials cost), not just revenue billed.
+model Technician {
+  id                        String          @id @default(uuid())
+  createdAt                 DateTime        @default(now())
+
+  user                      User            @relation(fields: [userId], references: [id])
+  userId                    String
+
+  name                      String
+  // Fully burdened cost per hour to the business (wage + payroll tax + benefits/overhead),
+  // not the rate billed to customers.
+  hourlyCost                Float
+  isActive                  Boolean         @default(true)
+
+  laborEntries              LaborEntry[]
+}
+
+model Job {
+  id                        String          @id @default(uuid())
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+
+  user                      User            @relation(fields: [userId], references: [id])
+  userId                    String
+
+  customerName              String
+  address                   String?
+  status                    String          @default("completed") // see JobStatus in src/job-costing/status.ts
+  scheduledAt               DateTime?
+  completedAt               DateTime?
+
+  invoiceAmount             Float           @default(0) // total billed to the customer (revenue)
+
+  lineItems                 JobLineItem[]
+  laborEntries              LaborEntry[]
+}
+
+// A materials/parts cost line on a job. Snapshots unitCost at the time it's
+// added so later price book changes don't retroactively change job history.
+model JobLineItem {
+  id                        String          @id @default(uuid())
+  createdAt                 DateTime        @default(now())
+
+  job                       Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId                     String
+
+  description               String
+  quantity                  Float           @default(1)
+  unitCost                  Float
+}
+
+// A technician's logged hours on a job. Snapshots the technician's hourly
+// cost at the time of entry so later rate changes don't retroactively skew
+// past job profitability.
+model LaborEntry {
+  id                        String          @id @default(uuid())
+  createdAt                 DateTime        @default(now())
+
+  job                       Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId                     String
+
+  technician                Technician      @relation(fields: [technicianId], references: [id])
+  technicianId              String
+
+  hours                     Float
+  hourlyCost                Float
 }
